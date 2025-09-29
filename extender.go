@@ -9,11 +9,14 @@ import (
 )
 
 type Extender struct {
+	LatexDelimiters bool
 }
 
 func (e *Extender) Extend(m goldmark.Markdown) {
 	m.Parser().AddOptions(parser.WithInlineParsers(
-		util.Prioritized(&Parser{}, 0),
+		util.Prioritized(&Parser{
+			LatexDelimiters: e.LatexDelimiters,
+		}, 0),
 	))
 	m.Renderer().AddOptions(renderer.WithNodeRenderers(
 		util.Prioritized(&HTMLRenderer{

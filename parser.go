@@ -6,10 +6,16 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
+// Parser uses $$ .. $$ for block expressions and $ .. $ for inline by default.
+// If LatexDelimiters is set then uses \[ .. \] and \( .. \) instead.
 type Parser struct {
+	LatexDelimiters bool
 }
 
 func (s *Parser) Trigger() []byte {
+	if s.LatexDelimiters {
+		return []byte{'\\'}
+	}
 	return []byte{'$'}
 }
 
@@ -24,18 +30,26 @@ func (s *Parser) Parse(parent ast.Node, block text.Reader, pc parser.Context) as
 	var start, end, advance int
 
 	trigger := line[0]
-
-	display := len(line) > 1 && line[1] == trigger
+	endTrigger := trigger
+	var display bool
+	if s.LatexDelimiters {
+		if len(line) < 2 || !(line[1] == '(' || line[1] == '[') {
+			return nil
+		}
+		display = line[1] == '['
+		endTrigger = ']'
+	} else {
+		display = len(line) > 1 && line[1] == trigger
+	}
 
 	if display { // Display
 		start = lstart + 2
-
 		offset := 2
 
 	L:
 		for x := 0; x < 20; x++ {
 			for j := offset; j < len(line); j++ {
-				if len(line) > j+1 && line[j] == trigger && line[j+1] == trigger {
+				if len(line) > j+1 && line[j] == trigger && line[j+1] == endTrigger {
 					end = lstart + j
 					advance = 2
 					break L
@@ -59,18 +73,29 @@ func (s *Parser) Parse(parent ast.Node, block text.Reader, pc parser.Context) as
 		}
 
 	} else { // Inline
-		start = lstart + 1
 
-		for i := 1; i < len(line); i++ {
-			c := line[i]
-			if c == '\\' {
-				i++
-				continue
+		if s.LatexDelimiters {
+			start = lstart + 2
+			for i := 2; i < len(line)-1; i++ {
+				if line[i] == '\\' && line[i+1] == ')' {
+					end = lstart + i
+					advance = 2
+					break
+				}
 			}
-			if c == trigger {
-				end = lstart + i
-				advance = 1
-				break
+		} else {
+			start = lstart + 1
+			for i := 1; i < len(line); i++ {
+				c := line[i]
+				if c == '\\' {
+					i++
+					continue
+				}
+				if c == trigger {
+					end = lstart + i
+					advance = 1
+					break
+				}
 			}
 		}
 		if end >= len(buf) || buf[end] != trigger {

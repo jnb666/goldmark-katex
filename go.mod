@@ -1,4 +1,4 @@
-module github.com/FurqanSoftware/goldmark-katex
+module github.com/jnb666/goldmark-katex
 
 go 1.24.4
 
